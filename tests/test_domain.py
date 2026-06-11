@@ -3,6 +3,7 @@ import unittest
 
 from archive_app.domain import (
     ARCHIVE_OBJECTS,
+    ROADMAP_ITEMS,
     RightsEvent,
     filter_objects,
     get_traceability_issues,
@@ -35,6 +36,15 @@ class ArchiveDomainTest(unittest.TestCase):
         results = filter_objects(ARCHIVE_OBJECTS, query="подушкино", status="attention")
 
         self.assertEqual([item.id for item in results], ["obj-002"])
+
+    def test_roadmap_contains_operational_development_tracks(self):
+        titles = {item.title for item in ROADMAP_ITEMS}
+
+        self.assertEqual(len(ROADMAP_ITEMS), 6)
+        self.assertIn("Авторизация и роли", titles)
+        self.assertIn("Хранилище сканов", titles)
+        self.assertIn("OCR и верификация реквизитов", titles)
+        self.assertTrue(all(item.capabilities for item in ROADMAP_ITEMS))
 
     def test_sort_events_by_date(self):
         events = [

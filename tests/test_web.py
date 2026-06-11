@@ -20,6 +20,14 @@ class ArchiveWebTest(unittest.TestCase):
         self.assertIn("50:21:0050203:88", html)
         self.assertNotIn("77:01:0004010:1542", html)
 
+    def test_page_contains_operational_roadmap(self):
+        html = render_page(ArchiveFilters())
+
+        self.assertIn("От прототипа к промышленной системе", html)
+        self.assertIn("Авторизация и роли", html)
+        self.assertIn("Интеграции с реестрами", html)
+        self.assertIn("6 направлений", html)
+
     def test_wsgi_app_returns_html(self):
         environ = {}
         setup_testing_defaults(environ)

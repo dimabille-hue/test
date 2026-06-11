@@ -9,7 +9,9 @@ from wsgiref.simple_server import make_server
 
 from .domain import (
     ARCHIVE_OBJECTS,
+    ROADMAP_ITEMS,
     RealEstateObject,
+    RoadmapItem,
     filter_objects,
     get_document_index,
     get_traceability_issues,
@@ -118,8 +120,38 @@ def render_page(filters: ArchiveFilters) -> str:
         <li><strong>Проверка полноты:</strong> система подсвечивает отсутствующие документы и разрывы в цепочке правообладателей.</li>
       </ol>
     </section>
+
+    {render_roadmap()}
   </body>
 </html>"""
+
+
+def render_roadmap() -> str:
+    cards = "".join(render_roadmap_item(item) for item in ROADMAP_ITEMS)
+    return f"""<section class="panel roadmap" aria-labelledby="roadmap-heading">
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">План развития</p>
+          <h2 id="roadmap-heading">От прототипа к промышленной системе</h2>
+        </div>
+        <span class="badge">{len(ROADMAP_ITEMS)} направлений</span>
+      </div>
+      <p class="roadmap__intro">
+        Следующие модули закрывают требования полноценной эксплуатации: безопасность,
+        надежное хранение сканов, OCR, аудит, интеграции и версионирование.
+      </p>
+      <div class="roadmap__grid">{cards}</div>
+    </section>"""
+
+
+def render_roadmap_item(item: RoadmapItem) -> str:
+    capabilities = "".join(f"<li>{escape(capability)}</li>" for capability in item.capabilities)
+    return f"""<article class="roadmap-card" id="roadmap-{escape(item.id)}">
+        <span class="roadmap-card__priority">{escape(item.priority)}</span>
+        <h3>{escape(item.title)}</h3>
+        <p>{escape(item.description)}</p>
+        <ul>{capabilities}</ul>
+      </article>"""
 
 
 def select_object(objects: list[RealEstateObject], selected_id: str) -> RealEstateObject | None:
