@@ -20,6 +20,21 @@ class ArchiveWebTest(unittest.TestCase):
         self.assertIn("50:21:0050203:88", html)
         self.assertNotIn("77:01:0004010:1542", html)
 
+    def test_role_selector_renders_access_profile(self):
+        html = render_page(ArchiveFilters(role="registrar"))
+
+        self.assertIn("Роль пользователя", html)
+        self.assertIn("Регистратор", html)
+        self.assertIn("Создание и изменение событий прав", html)
+
+    def test_auditor_role_masks_personal_owner_names(self):
+        html = render_page(ArchiveFilters(owner_type="person", selected_id="obj-002", role="auditor"))
+
+        self.assertIn("Аудитор", html)
+        self.assertIn("Иванова М. П.", html)
+        self.assertIn("персональные данные физических лиц маскируются", html)
+        self.assertNotIn("Иванова Мария Петровна", html)
+
     def test_page_contains_operational_roadmap(self):
         html = render_page(ArchiveFilters())
 

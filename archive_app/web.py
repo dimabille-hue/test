@@ -10,8 +10,12 @@ from wsgiref.simple_server import make_server
 from .domain import (
     ARCHIVE_OBJECTS,
     ROADMAP_ITEMS,
+    ROLE_PROFILES,
     RealEstateObject,
     RoadmapItem,
+    RoleProfile,
+    display_owner_name,
+    get_role_profile,
     filter_objects,
     get_document_index,
     get_traceability_issues,
@@ -30,6 +34,8 @@ STATUS_LABELS = {
     "attention": "Требует внимания",
 }
 
+ROLE_LABELS = {code: profile.title for code, profile in ROLE_PROFILES.items()}
+
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 StartResponse = Callable[[str, list[tuple[str, str]]], None]
 
@@ -40,6 +46,7 @@ class ArchiveFilters:
     owner_type: str = "all"
     status: str = "all"
     selected_id: str = ""
+    role: str = "archivist"
 
     @classmethod
     def from_query_string(cls, query_string: str) -> "ArchiveFilters":
@@ -49,6 +56,7 @@ class ArchiveFilters:
             owner_type=_allowed_value(params.get("owner_type", ["all"])[0], OWNER_LABELS, "all"),
             status=_allowed_value(params.get("status", ["all"])[0], STATUS_LABELS, "all"),
             selected_id=params.get("selected_id", [""])[0],
+            role=_allowed_value(params.get("role", ["archivist"])[0], ROLE_LABELS, "archivist"),
         )
 
 
@@ -69,6 +77,7 @@ def status_badge_class(real_estate_object: RealEstateObject) -> str:
 
 
 def render_page(filters: ArchiveFilters) -> str:
+    role_profile = get_role_profile(filters.role)
     filtered_objects = filter_objects(
         ARCHIVE_OBJECTS,
         query=filters.query,
@@ -107,8 +116,9 @@ def render_page(filters: ArchiveFilters) -> str:
 
     <main class="layout">
       {render_filters(filters)}
-      {render_objects_list(filtered_objects, selected, filters)}
-      {render_details(selected)}
+      {render_access_panel(role_profile)}
+      {render_objects_list(filtered_objects, selected, filters, role_profile)}
+      {render_details(selected, role_profile)}
     </main>
 
     <section class="panel workflow" aria-labelledby="workflow-heading">
@@ -161,9 +171,27 @@ def select_object(objects: list[RealEstateObject], selected_id: str) -> RealEsta
     return objects[0] if objects else None
 
 
+def render_access_panel(role_profile: RoleProfile) -> str:
+    permissions = "".join(f"<li>{escape(permission)}</li>" for permission in role_profile.permissions)
+    personal_data_status = (
+        "полный доступ к персональным данным"
+        if role_profile.can_view_personal_data
+        else "персональные данные физических лиц маскируются"
+    )
+    return f"""<aside class="panel access" aria-label="Профиль доступа">
+        <p class="eyebrow">Контур доступа</p>
+        <h2>{escape(role_profile.title)}</h2>
+        <p>{escape(role_profile.description)}</p>
+        <span class="badge">{escape(personal_data_status)}</span>
+        <h3>Разрешения</h3>
+        <ul>{permissions}</ul>
+      </aside>"""
+
+
 def render_filters(filters: ArchiveFilters) -> str:
     owner_options = render_options(OWNER_LABELS, filters.owner_type)
     status_options = render_options(STATUS_LABELS, filters.status)
+    role_options = render_options(ROLE_LABELS, filters.role)
     return f"""<aside class="panel filters" aria-label="Фильтры объектов">
         <h2>Поиск в архиве</h2>
         <form method="get">
@@ -179,6 +207,10 @@ def render_filters(filters: ArchiveFilters) -> str:
             Статус досье
             <select name="status">{status_options}</select>
           </label>
+          <label>
+            Роль пользователя
+            <select name="role">{role_options}</select>
+          </label>
           <button type="submit">Применить фильтры</button>
           <a class="reset-link" href="/">Сбросить фильтры</a>
         </form>
@@ -192,8 +224,16 @@ def render_options(options: dict[str, str], selected: str) -> str:
     )
 
 
-def render_objects_list(objects: list[RealEstateObject], selected: RealEstateObject | None, filters: ArchiveFilters) -> str:
-    cards = "".join(render_object_card(real_estate_object, selected, filters) for real_estate_object in objects)
+def render_objects_list(
+    objects: list[RealEstateObject],
+    selected: RealEstateObject | None,
+    filters: ArchiveFilters,
+    role_profile: RoleProfile,
+) -> str:
+    cards = "".join(
+        render_object_card(real_estate_object, selected, filters, role_profile)
+        for real_estate_object in objects
+    )
     if not cards:
         cards = '<p class="empty-state">По заданным фильтрам объекты не найдены.</p>'
 
@@ -206,13 +246,24 @@ def render_objects_list(objects: list[RealEstateObject], selected: RealEstateObj
       </section>"""
 
 
-def render_object_card(real_estate_object: RealEstateObject, selected: RealEstateObject | None, filters: ArchiveFilters) -> str:
+def render_object_card(
+    real_estate_object: RealEstateObject,
+    selected: RealEstateObject | None,
+    filters: ArchiveFilters,
+    role_profile: RoleProfile,
+) -> str:
     active_class = " is-active" if selected and real_estate_object.id == selected.id else ""
     href = build_object_href(filters, real_estate_object.id)
+    owner = display_owner_name(
+        real_estate_object.current_owner,
+        real_estate_object.owner_type,
+        role_profile,
+    )
     return f"""<a class="object-card{active_class}" href="{href}">
       <span class="object-card__type">{escape(real_estate_object.type)}</span>
       <strong>{escape(real_estate_object.cadastral_number)}</strong>
       <span>{escape(real_estate_object.address)}</span>
+      <span class="object-card__owner">{escape(owner)}</span>
       <span class="object-card__footer">
         <span>{OWNER_LABELS[real_estate_object.owner_type]}</span>
         <span class="badge {status_badge_class(real_estate_object)}">{status_label(real_estate_object)}</span>
@@ -228,6 +279,8 @@ def build_object_href(filters: ArchiveFilters, selected_id: str) -> str:
         query.append(("owner_type", filters.owner_type))
     if filters.status != "all":
         query.append(("status", filters.status))
+    if filters.role != "archivist":
+        query.append(("role", filters.role))
     query.append(("selected_id", selected_id))
     return "/?" + "&".join(f"{key}={escape_url(value)}" for key, value in query)
 
@@ -238,7 +291,7 @@ def escape_url(value: str) -> str:
     return quote_plus(value)
 
 
-def render_details(real_estate_object: RealEstateObject | None) -> str:
+def render_details(real_estate_object: RealEstateObject | None, role_profile: RoleProfile) -> str:
     if real_estate_object is None:
         return """<section class="panel details" aria-live="polite" aria-labelledby="details-heading">
         <div class="section-title"><h2 id="details-heading">Карточка объекта</h2></div>
@@ -247,6 +300,11 @@ def render_details(real_estate_object: RealEstateObject | None) -> str:
 
     issues = get_traceability_issues(real_estate_object)
     alert = render_issues_alert(issues)
+    owner = display_owner_name(
+        real_estate_object.current_owner,
+        real_estate_object.owner_type,
+        role_profile,
+    )
     return f"""<section class="panel details" aria-live="polite" aria-labelledby="details-heading">
         <div class="section-title">
           <h2 id="details-heading">Карточка объекта</h2>
@@ -255,13 +313,13 @@ def render_details(real_estate_object: RealEstateObject | None) -> str:
         <div class="details-content">
           <div class="summary-grid">
             <div><span>Кадастровый номер</span><strong>{escape(real_estate_object.cadastral_number)}</strong></div>
-            <div><span>Текущий правообладатель</span><strong>{escape(real_estate_object.current_owner)}</strong></div>
+            <div><span>Текущий правообладатель</span><strong>{escape(owner)}</strong></div>
             <div><span>Тип владельца</span><strong>{OWNER_LABELS[real_estate_object.owner_type]}</strong></div>
             <div><span>Площадь</span><strong>{real_estate_object.area:g} м²</strong></div>
           </div>
           {alert}
           <h3>История прав</h3>
-          <div class="timeline">{render_timeline(real_estate_object)}</div>
+          <div class="timeline">{render_timeline(real_estate_object, role_profile)}</div>
           <h3>Реестр документов</h3>
           <div class="table-wrap">{render_documents_table(real_estate_object)}</div>
         </div>
@@ -279,7 +337,7 @@ def render_issues_alert(issues) -> str:
     return f'<div class="alert"><strong>Разрыв прослеживаемости:</strong> {issue_text}.</div>'
 
 
-def render_timeline(real_estate_object: RealEstateObject) -> str:
+def render_timeline(real_estate_object: RealEstateObject, role_profile: RoleProfile) -> str:
     documents = get_document_index(real_estate_object)
     items = []
     for event in sort_events_by_date(real_estate_object.rights_events):
@@ -293,11 +351,12 @@ def render_timeline(real_estate_object: RealEstateObject) -> str:
             else:
                 document_links.append(f'<li class="missing">Не найден документ: {escape(document_id)}</li>')
 
+        event_owner = display_owner_name(event.owner, real_estate_object.owner_type, role_profile)
         items.append(
             f"""<article class="timeline__item">
           <time datetime="{event.date.isoformat()}">{format_date(event.date)}</time>
           <h4>{escape(event.action)}</h4>
-          <p><strong>Правообладатель:</strong> {escape(event.owner)}</p>
+          <p><strong>Правообладатель:</strong> {escape(event_owner)}</p>
           <p><strong>Основание:</strong> {escape(event.basis)}</p>
           <p><strong>Регистратор / источник:</strong> {escape(event.registrar)}</p>
           <ul class="document-links">{''.join(document_links)}</ul>

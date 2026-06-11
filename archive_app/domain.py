@@ -6,6 +6,7 @@ from typing import Literal
 
 OwnerType = Literal["organization", "person"]
 DossierStatus = Literal["complete", "attention"]
+RoleCode = Literal["archivist", "registrar", "lawyer", "auditor"]
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,82 @@ class RoadmapItem:
     priority: str
     description: str
     capabilities: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RoleProfile:
+    code: RoleCode
+    title: str
+    description: str
+    permissions: tuple[str, ...]
+    can_view_personal_data: bool
+
+
+ROLE_PROFILES: dict[RoleCode, RoleProfile] = {
+    "archivist": RoleProfile(
+        code="archivist",
+        title="Архивариус",
+        description="Оцифровывает бумажные дела, загружает сканы и связывает документы с объектами.",
+        permissions=(
+            "Загрузка и замена сканов до утверждения",
+            "Редактирование реквизитов документов",
+            "Просмотр персональных данных правообладателей",
+        ),
+        can_view_personal_data=True,
+    ),
+    "registrar": RoleProfile(
+        code="registrar",
+        title="Регистратор",
+        description="Ведет события прав, ограничения, основания регистрации и связи с документами.",
+        permissions=(
+            "Создание и изменение событий прав",
+            "Связка правоустанавливающих документов",
+            "Просмотр персональных данных правообладателей",
+        ),
+        can_view_personal_data=True,
+    ),
+    "lawyer": RoleProfile(
+        code="lawyer",
+        title="Юрист",
+        description="Проверяет юридическую чистоту цепочки прав и готовит заключения по рискам.",
+        permissions=(
+            "Просмотр полного досье",
+            "Юридическая верификация документов",
+            "Формирование замечаний по разрывам прослеживаемости",
+        ),
+        can_view_personal_data=True,
+    ),
+    "auditor": RoleProfile(
+        code="auditor",
+        title="Аудитор",
+        description="Контролирует полноту досье и действия пользователей без доступа к лишним персональным данным.",
+        permissions=(
+            "Просмотр статусов и разрывов прослеживаемости",
+            "Экспорт контрольных отчетов",
+            "Маскирование персональных данных физических лиц",
+        ),
+        can_view_personal_data=False,
+    ),
+}
+
+
+def get_role_profile(role: str) -> RoleProfile:
+    return ROLE_PROFILES.get(role, ROLE_PROFILES["archivist"])
+
+
+def mask_personal_data(value: str) -> str:
+    if not value:
+        return "Персональные данные скрыты"
+    parts = value.split()
+    if len(parts) >= 3:
+        return f"{parts[0]} {parts[1][0]}. {parts[2][0]}."
+    return "Персональные данные скрыты"
+
+
+def display_owner_name(owner: str, owner_type: OwnerType, role_profile: RoleProfile) -> str:
+    if owner_type == "person" and not role_profile.can_view_personal_data:
+        return mask_personal_data(owner)
+    return owner
 
 
 ROADMAP_ITEMS: tuple[RoadmapItem, ...] = (

@@ -4,7 +4,10 @@ import unittest
 from archive_app.domain import (
     ARCHIVE_OBJECTS,
     ROADMAP_ITEMS,
+    ROLE_PROFILES,
     RightsEvent,
+    display_owner_name,
+    get_role_profile,
     filter_objects,
     get_traceability_issues,
     sort_events_by_date,
@@ -36,6 +39,27 @@ class ArchiveDomainTest(unittest.TestCase):
         results = filter_objects(ARCHIVE_OBJECTS, query="подушкино", status="attention")
 
         self.assertEqual([item.id for item in results], ["obj-002"])
+
+    def test_role_profiles_define_personal_data_access(self):
+        auditor = get_role_profile("auditor")
+        archivist = get_role_profile("archivist")
+
+        self.assertEqual(len(ROLE_PROFILES), 4)
+        self.assertFalse(auditor.can_view_personal_data)
+        self.assertTrue(archivist.can_view_personal_data)
+        self.assertEqual(get_role_profile("unknown").code, "archivist")
+
+    def test_personal_owner_is_masked_for_auditor(self):
+        person_object = ARCHIVE_OBJECTS[1]
+
+        self.assertEqual(
+            display_owner_name(person_object.current_owner, person_object.owner_type, get_role_profile("auditor")),
+            "Иванова М. П.",
+        )
+        self.assertEqual(
+            display_owner_name(person_object.current_owner, person_object.owner_type, get_role_profile("lawyer")),
+            "Иванова Мария Петровна",
+        )
 
     def test_roadmap_contains_operational_development_tracks(self):
         titles = {item.title for item in ROADMAP_ITEMS}
