@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Архив прав на недвижимость</title>
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Цифровой архив собственности</p>
+        <h1>Прослеживаемость прав и подтверждающих документов</h1>
+        <p class="hero__text">
+          Прототип приложения для перевода бумажного архива объектов недвижимости
+          в электронный вид: карточки объектов, история правообладателей,
+          цепочки документов и контроль полноты досье.
+        </p>
+      </div>
+      <section class="hero__card" aria-label="Ключевые показатели архива">
+        <div><strong id="objects-count">0</strong><span>объекта</span></div>
+        <div><strong id="documents-count">0</strong><span>документов</span></div>
+        <div><strong id="risk-count">0</strong><span>требуют внимания</span></div>
+      </section>
+    </header>
+
+    <main class="layout">
+      <aside class="panel filters" aria-label="Фильтры объектов">
+        <h2>Поиск в архиве</h2>
+        <label>
+          Текстовый поиск
+          <input id="search" type="search" placeholder="Кадастровый номер, адрес, владелец" />
+        </label>
+        <label>
+          Тип правообладателя
+          <select id="owner-type">
+            <option value="all">Все</option>
+            <option value="organization">Организация</option>
+            <option value="person">Физическое лицо</option>
+          </select>
+        </label>
+        <label>
+          Статус досье
+          <select id="status-filter">
+            <option value="all">Все статусы</option>
+            <option value="complete">Полное</option>
+            <option value="attention">Требует внимания</option>
+          </select>
+        </label>
+        <button id="reset-filters" type="button">Сбросить фильтры</button>
+      </aside>
+
+      <section class="panel objects" aria-labelledby="objects-heading">
+        <div class="section-title">
+          <h2 id="objects-heading">Объекты недвижимости</h2>
+          <span id="result-count" class="badge">0 найдено</span>
+        </div>
+        <div id="objects-list" class="objects-list"></div>
+      </section>
+
+      <section class="panel details" aria-live="polite" aria-labelledby="details-heading">
+        <div class="section-title">
+          <h2 id="details-heading">Карточка объекта</h2>
+          <span id="details-status" class="badge"></span>
+        </div>
+        <div id="object-details" class="details-empty">
+          Выберите объект слева, чтобы увидеть историю прав и документы.
+        </div>
+      </section>
+    </main>
+
+    <section class="panel workflow" aria-labelledby="workflow-heading">
+      <h2 id="workflow-heading">Процесс оцифровки бумажного архива</h2>
+      <ol>
+        <li><strong>Регистрация объекта:</strong> кадастровый номер, адрес, тип, площадь.</li>
+        <li><strong>Сканирование:</strong> загрузка образов документов и OCR-распознавание.</li>
+        <li><strong>Связка с событием права:</strong> каждый документ подтверждает регистрацию, переход, ограничение или прекращение права.</li>
+        <li><strong>Проверка полноты:</strong> система подсвечивает отсутствующие документы и разрывы в цепочке правообладателей.</li>
+      </ol>
+    </section>
+
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
