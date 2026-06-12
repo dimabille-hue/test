@@ -1,0 +1,8 @@
+[project]
+name = "real-estate-archive"
+version = "0.2.0"
+description = "Python prototype for a digital archive of real estate ownership documents with rights traceability."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
